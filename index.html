@@ -469,7 +469,7 @@ async function getData(mod) {
     .from('erp_store')
     .select('value')
     .eq('key', MODULES[mod].key)
-    .single();
+    .maybeSingle();
 
   if (data && data.value) {
     localStorage.setItem(MODULES[mod].key, JSON.stringify(data.value));
