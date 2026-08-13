@@ -439,7 +439,9 @@
 /* ---------- Configuración de Supabase ---------- */
 const SUPABASE_URL = 'https://nuxipyqrutvaaoqhqmzl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_F3PsWbC9rwMJfxwwTYqQvg_Ck6JjFeT';
-const supabaseClient = supabase.createClient(https://nuxipyqrutvaaoqhqmzl.supabase.co,sb_publishable_F3PsWbC9rwMJfxwwTYqQvg_Ck6JjFeT );
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 
 /* ---------- Almacenamiento Sincronizado ---------- */
 async function getData(mod) {
