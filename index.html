@@ -1,470 +1,471 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ERP · Sistema de Contabilización</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --navy:#152233;
-    --navy-2:#1E3049;
-    --steel:#4A5568;
-    --steel-light:#8A94A3;
-    --concrete:#E9E7E1;
-    --paper:#F6F5F1;
-    --white:#FFFFFF;
-    --amber:#E8930B;
-    --amber-dark:#C77A05;
-    --green:#2D6E4E;
-    --green-bg:#E4F0E9;
-    --red:#B23A2E;
-    --red-bg:#F6E5E3;
-    --blue:#2A5C8A;
-    --blue-bg:#E4EDF5;
-    --line:#D8D5CC;
-    --radius:3px;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{
-    font-family:'IBM Plex Sans', sans-serif;
-    background:var(--concrete);
-    color:var(--navy);
-    min-height:100vh;
-    background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 32px 32px;
-    background-attachment: fixed;
-  }
-  .app{display:flex; min-height:100vh;}
-
-  /* Sidebar */
-  .sidebar{
-    width:220px; flex-shrink:0;
-    background:var(--navy);
-    color:var(--white);
-    display:flex; flex-direction:column;
-    position:sticky; top:0; height:100vh;
-  }
-  .brand{
-    padding:22px 20px 18px 20px;
-    border-bottom:1px solid rgba(255,255,255,0.12);
-  }
-  .brand-mark{
-    font-family:'Oswald', sans-serif; font-weight:700; font-size:20px;
-    letter-spacing:0.5px; color:var(--white); display:flex; align-items:center; gap:8px;
-  }
-  .brand-mark::before{
-    content:''; width:10px; height:10px; background:var(--amber); display:inline-block;
-    transform:rotate(45deg);
-  }
-  .brand-sub{
-    font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--steel-light);
-    letter-spacing:1px; margin-top:4px; text-transform:uppercase;
-  }
-  nav{padding:14px 0; flex:1;}
-  .nav-item{
-    display:flex; align-items:center; gap:10px;
-    padding:11px 20px; color:rgba(255,255,255,0.72);
-    font-size:13.5px; font-weight:500; cursor:pointer;
-    border-left:3px solid transparent;
-    transition:all .12s ease;
-  }
-  .nav-item:hover{background:rgba(255,255,255,0.05); color:var(--white);}
-  .nav-item.active{
-    background:var(--navy-2); color:var(--white);
-    border-left:3px solid var(--amber);
-  }
-  .nav-num{
-    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--steel-light);
-    width:16px;
-  }
-  .nav-item.active .nav-num{color:var(--amber);}
-  .sidebar-footer{
-    padding:14px 20px; border-top:1px solid rgba(255,255,255,0.12);
-    font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--steel-light);
-  }
-
-  /* Main */
-  main{flex:1; padding:28px 34px; max-width:1400px;}
-  .view{display:none;}
-  .view.active{display:block;}
-
-  .page-head{
-    display:flex; justify-content:space-between; align-items:flex-end;
-    margin-bottom:22px; padding-bottom:16px; border-bottom:2px solid var(--navy);
-  }
-  .page-title{font-family:'Oswald', sans-serif; font-size:26px; font-weight:600; letter-spacing:0.3px;}
-  .page-sub{font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--steel); margin-top:3px; text-transform:uppercase; letter-spacing:0.5px;}
-  .btn{
-    font-family:'IBM Plex Sans', sans-serif; font-weight:600; font-size:13px;
-    padding:9px 16px; border:none; border-radius:var(--radius); cursor:pointer;
-    display:inline-flex; align-items:center; gap:6px; transition:filter .12s ease;
-  }
-  .btn:hover{filter:brightness(1.08);}
-  .btn-primary{background:var(--amber); color:var(--navy);}
-  .btn-ghost{background:transparent; color:var(--navy); border:1.5px solid var(--navy);}
-  .btn-danger{background:var(--red); color:var(--white);}
-  .btn-sm{padding:5px 10px; font-size:12px;}
-
-  /* Dashboard cards */
-  .grid-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-bottom:26px;}
-  .card{
-    background:var(--white); border:1px solid var(--line); border-radius:var(--radius);
-    padding:16px 18px; position:relative; overflow:hidden;
-  }
-  .card::before{
-    content:''; position:absolute; top:0; left:0; width:4px; height:100%;
-  }
-  .card.c-navy::before{background:var(--navy);}
-  .card.c-amber::before{background:var(--amber);}
-  .card.c-green::before{background:var(--green);}
-  .card.c-red::before{background:var(--red);}
-  .card-label{font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.6px; color:var(--steel);}
-  .card-value{font-family:'Oswald', sans-serif; font-size:26px; font-weight:600; margin-top:6px; color:var(--navy);}
-  .card-foot{font-size:11.5px; color:var(--steel); margin-top:4px;}
-
-  .dash-grid{display:grid; grid-template-columns:1.4fr 1fr; gap:16px;}
-  .panel{background:var(--white); border:1px solid var(--line); border-radius:var(--radius); padding:18px;}
-  .panel-title{
-    font-family:'Oswald', sans-serif; font-weight:600; font-size:15px;
-    margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--line);
-    display:flex; justify-content:space-between; align-items:center;
-  }
-  .alert-row{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:9px 0; border-bottom:1px dashed var(--line); font-size:13px;
-  }
-  .alert-row:last-child{border-bottom:none;}
-  .tag{
-    font-family:'IBM Plex Mono', monospace; font-size:10px; padding:3px 7px;
-    border-radius:2px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;
-  }
-  .tag-amber{background:#FBEBD0; color:var(--amber-dark);}
-  .tag-green{background:var(--green-bg); color:var(--green);}
-  .tag-red{background:var(--red-bg); color:var(--red);}
-  .tag-blue{background:var(--blue-bg); color:var(--blue);}
-  .tag-gray{background:#EAEAEA; color:var(--steel);}
-
-  /* Toolbar */
-  .toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap;}
-  .search-box{
-    display:flex; align-items:center; gap:8px;
-    background:var(--white); border:1px solid var(--line); border-radius:var(--radius);
-    padding:8px 12px; min-width:240px;
-  }
-  .search-box input{border:none; outline:none; font-size:13px; width:100%; font-family:'IBM Plex Sans';}
-  select.filter-select{
-    padding:8px 10px; border:1px solid var(--line); border-radius:var(--radius);
-    font-family:'IBM Plex Sans'; font-size:13px; background:var(--white); color:var(--navy);
-  }
-
-  /* Table */
-  table{width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
-  thead th{
-    background:var(--navy); color:var(--white); text-align:left; padding:10px 14px;
-    font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; font-weight:500;
-  }
-  tbody td{padding:11px 14px; border-bottom:1px solid var(--line); font-size:13.5px;}
-  tbody tr:last-child td{border-bottom:none;}
-  tbody tr:hover{background:var(--paper);}
-  td.num{font-family:'IBM Plex Mono', monospace; text-align:right;}
-  td.actions{white-space:nowrap; text-align:right;}
-  .icon-btn{
-    background:none; border:none; cursor:pointer; padding:4px 6px; font-size:13px; color:var(--steel);
-  }
-  .icon-btn:hover{color:var(--navy);}
-  .empty-state{
-    text-align:center; padding:50px 20px; color:var(--steel); background:var(--white);
-    border:1px dashed var(--line); border-radius:var(--radius); font-size:13.5px;
-  }
-
-  /* Kanban CRM */
-  .kanban{display:flex; gap:12px; overflow-x:auto; padding-bottom:6px;}
-  .kanban-col{
-    flex:0 0 250px; background:var(--white); border:1px solid var(--line);
-    border-radius:var(--radius); border-top:4px solid var(--steel-light);
-    display:flex; flex-direction:column; max-height:calc(100vh - 230px);
-  }
-  .kanban-col[data-stage="Prospecto"]{border-top-color:var(--steel-light);}
-  .kanban-col[data-stage="Contactado"]{border-top-color:var(--blue);}
-  .kanban-col[data-stage="Propuesta"]{border-top-color:var(--amber);}
-  .kanban-col[data-stage="Negociación"]{border-top-color:var(--amber-dark);}
-  .kanban-col[data-stage="Ganado"]{border-top-color:var(--green);}
-  .kanban-col[data-stage="Perdido"]{border-top-color:var(--red);}
-  .kanban-col-head{
-    padding:10px 12px; border-bottom:1px solid var(--line);
-    display:flex; justify-content:space-between; align-items:center;
-    font-family:'Oswald', sans-serif; font-weight:600; font-size:13px; letter-spacing:0.2px;
-  }
-  .kanban-count{
-    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--steel);
-    background:var(--paper); padding:1px 7px; border-radius:8px;
-  }
-  .kanban-body{padding:10px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;}
-  .kanban-card{
-    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
-    padding:10px 11px; cursor:pointer; transition:box-shadow .12s ease;
-  }
-  .kanban-card:hover{box-shadow:0 2px 6px rgba(21,34,51,0.12); border-color:var(--steel-light);}
-  .kc-name{font-weight:600; font-size:13px; color:var(--navy);}
-  .kc-empresa{font-size:11.5px; color:var(--steel); margin-top:1px;}
-  .kc-foot{display:flex; justify-content:space-between; align-items:center; margin-top:7px;}
-  .kc-action{font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--steel);}
-  .kanban-empty{padding:16px 10px; font-size:12px; color:var(--steel-light); text-align:center;}
-
-  /* Modal */
-  .overlay{
-    display:none; position:fixed; inset:0; background:rgba(21,34,51,0.55);
-    align-items:center; justify-content:center; z-index:100; padding:20px;
-  }
-  .overlay.active{display:flex;}
-  .modal{
-    background:var(--white); width:100%; max-width:480px; border-radius:var(--radius);
-    max-height:90vh; overflow-y:auto; border-top:4px solid var(--amber);
-  }
-  .modal-head{
-    padding:16px 20px; border-bottom:1px solid var(--line);
-    display:flex; justify-content:space-between; align-items:center;
-  }
-  .modal-title{font-family:'Oswald', sans-serif; font-weight:600; font-size:17px;}
-  .modal-close{background:none; border:none; font-size:20px; cursor:pointer; color:var(--steel); line-height:1;}
-  .modal-body{padding:18px 20px;}
-  .field{margin-bottom:14px;}
-  .field label{
-    display:block; font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase;
-    letter-spacing:0.5px; color:var(--steel); margin-bottom:5px;
-  }
-  .field input, .field select, .field textarea{
-    width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:var(--radius);
-    font-family:'IBM Plex Sans'; font-size:13.5px; color:var(--navy); background:var(--paper);
-  }
-  .field textarea{resize:vertical; min-height:60px;}
-  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .modal-foot{padding:14px 20px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px;}
-
-  .toast{
-    position:fixed; bottom:24px; right:24px; background:var(--navy); color:var(--white);
-    padding:12px 18px; border-radius:var(--radius); font-size:13px; border-left:4px solid var(--amber);
-    transform:translateY(20px); opacity:0; transition:all .25s ease; z-index:200;
-  }
-  .toast.show{transform:translateY(0); opacity:1;}
-
-  @media (max-width: 900px){
-    .app{flex-direction:column;}
-    .sidebar{width:100%; height:auto; position:relative; flex-direction:row; overflow-x:auto;}
-    .brand{display:none;}
-    nav{display:flex; padding:0;}
-    .nav-item{border-left:none; border-bottom:3px solid transparent; white-space:nowrap;}
-    .nav-item.active{border-left:none; border-bottom:3px solid var(--amber);}
-    .sidebar-footer{display:none;}
-    main{padding:18px;}
-    .grid-cards{grid-template-columns:1fr 1fr;}
-    .dash-grid{grid-template-columns:1fr;}
-    .field-row{grid-template-columns:1fr;}
-    table{display:block; overflow-x:auto;}
-  }
-</style>
-</head>
-<body>
-
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-mark">ERP·CMIC</div>
-      <div class="brand-sub">Sistema de contabilización</div>
-    </div>
-    <nav id="navMenu">
-      <div class="nav-item active" data-view="dashboard"><span class="nav-num">00</span> Panel general</div>
-      <div class="nav-item" data-view="finanzas"><span class="nav-num">01</span> Finanzas</div>
-      <div class="nav-item" data-view="licitaciones"><span class="nav-num">02</span> Licitaciones</div>
-      <div class="nav-item" data-view="miembros"><span class="nav-num">03</span> Miembros</div>
-      <div class="nav-item" data-view="activos"><span class="nav-num">04</span> Activos</div>
-      <div class="nav-item" data-view="crm"><span class="nav-num">05</span> CRM</div>
-    </nav>
-    <div class="sidebar-footer">SINCRO SUPABASE</div>
-  </aside>
-
-  <main>
-
-    <!-- DASHBOARD -->
-    <section class="view active" id="view-dashboard">
-      <div class="page-head">
-        <div>
-          <div class="page-title">Panel general</div>
-          <div class="page-sub" id="todayDate">—</div>
-        </div>
-      </div>
-      <div class="grid-cards" id="dashCards"></div>
-      <div class="dash-grid">
-        <div class="panel">
-          <div class="panel-title">Alertas y pendientes</div>
-          <div id="alertsList"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-title">Balance por módulo</div>
-          <div id="moduleSummary"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FINANZAS -->
-    <section class="view" id="view-finanzas">
-      <div class="page-head">
-        <div>
-          <div class="page-title">Finanzas</div>
-          <div class="page-sub">Ingresos y egresos</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal('finanzas')">+ Nuevo movimiento</button>
-      </div>
-      <div class="toolbar">
-        <div class="search-box">🔎 <input type="text" id="search-finanzas" placeholder="Buscar por concepto o categoría..." oninput="renderTable('finanzas')"></div>
-        <select class="filter-select" id="filter-finanzas-tipo" onchange="renderTable('finanzas')">
-          <option value="">Todos los tipos</option>
-          <option value="Ingreso">Ingreso</option>
-          <option value="Egreso">Egreso</option>
-        </select>
-      </div>
-      <div id="table-finanzas"></div>
-    </section>
-
-    <!-- LICITACIONES -->
-    <section class="view" id="view-licitaciones">
-      <div class="page-head">
-        <div>
-          <div class="page-title">Licitaciones</div>
-          <div class="page-sub">Procesos de contratación pública</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal('licitaciones')">+ Nueva licitación</button>
-      </div>
-      <div class="toolbar">
-        <div class="search-box">🔎 <input type="text" id="search-licitaciones" placeholder="Buscar por número, dependencia u objeto..." oninput="renderTable('licitaciones')"></div>
-        <select class="filter-select" id="filter-licitaciones-estado" onchange="renderTable('licitaciones')">
-          <option value="">Todos los estados</option>
-          <option value="Por participar">Por participar</option>
-          <option value="En proceso">En proceso</option>
-          <option value="Ganada">Ganada</option>
-          <option value="Perdida">Perdida</option>
-          <option value="Descartada">Descartada</option>
-        </select>
-      </div>
-      <div id="table-licitaciones"></div>
-    </section>
-
-    <!-- MIEMBROS -->
-    <section class="view" id="view-miembros">
-      <div class="page-head">
-        <div>
-          <div class="page-title">Miembros</div>
-          <div class="page-sub">Afiliados y cuotas</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal('miembros')">+ Nuevo miembro</button>
-      </div>
-      <div class="toolbar">
-        <div class="search-box">🔎 <input type="text" id="search-miembros" placeholder="Buscar por nombre o empresa..." oninput="renderTable('miembros')"></div>
-        <select class="filter-select" id="filter-miembros-estado" onchange="renderTable('miembros')">
-          <option value="">Todos los estados de cuota</option>
-          <option value="Al corriente">Al corriente</option>
-          <option value="Pendiente">Pendiente</option>
-          <option value="Vencida">Vencida</option>
-        </select>
-      </div>
-      <div id="table-miembros"></div>
-    </section>
-
-    <!-- ACTIVOS -->
-    <section class="view" id="view-activos">
-      <div class="page-head">
-        <div>
-          <div class="page-title">Activos</div>
-          <div class="page-sub">Inventario y bienes</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal('activos')">+ Nuevo activo</button>
-      </div>
-      <div class="toolbar">
-        <div class="search-box">🔎 <input type="text" id="search-activos" placeholder="Buscar por nombre o ubicación..." oninput="renderTable('activos')"></div>
-        <select class="filter-select" id="filter-activos-estado" onchange="renderTable('activos')">
-          <option value="">Todos los estados</option>
-          <option value="Operativo">Operativo</option>
-          <option value="Mantenimiento">Mantenimiento</option>
-          <option value="Baja">Baja</option>
-        </select>
-      </div>
-      <div id="table-activos"></div>
-    </section>
-
-    <!-- CRM -->
-    <section class="view" id="view-crm">
-      <div class="page-head">
-        <div>
-          <div class="page-title">CRM</div>
-          <div class="page-sub">Prospección y relación con clientes / dependencias</div>
-        </div>
-        <button class="btn btn-primary" onclick="openModal('crm')">+ Nuevo prospecto</button>
-      </div>
-      <div class="toolbar">
-        <div class="search-box">🔎 <input type="text" id="search-crm" placeholder="Buscar por nombre, empresa o responsable..." oninput="renderCRMBoard()"></div>
-        <select class="filter-select" id="filter-crm-responsable" onchange="renderCRMBoard()">
-          <option value="">Todos los responsables</option>
-        </select>
-      </div>
-      <div class="kanban" id="board-crm"></div>
-    </section>
-
-  </main>
-</div>
-
-<!-- MODAL -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <div class="modal-head">
-      <div class="modal-title" id="modalTitle">Nuevo registro</div>
-      <button class="modal-close" onclick="closeModal()">×</button>
-    </div>
-    <div class="modal-body" id="modalBody"></div>
-    <div class="modal-foot">
-      <button class="btn btn-danger" id="modalDeleteBtn" style="display:none; margin-right:auto;" onclick="deleteRecord(editingModule, editingId); closeModal();">Eliminar</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveRecord()">Guardar</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ---------- Configuración de Supabase ---------- */
+/* ---------- Configuración Segura de Supabase ---------- */
 const SUPABASE_URL = 'https://nuxipyqrutvaaoqhqmzl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_F3PsWbC9rwMJfxwwTYqQvg_Ck6JjFeT';
 
-const customFetch = (url, options = {}) => {
-  if (options.headers && typeof options.headers.forEach === 'function') {
-    const plainHeaders = {};
-    options.headers.forEach((val, key) => { plainHeaders[key] = val; });
-    options.headers = plainHeaders;
-  }
-  return fetch(url, options);
-};
+let supabaseClient = null;
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  },
-  global: {
-    fetch: customFetch
-  }
-});
+try {
+  if (typeof supabase !== 'undefined') {
+    const customFetch = (url, options = {}) => {
+      if (options.headers && typeof options.headers.forEach === 'function') {
+        const plainHeaders = {};
+        options.headers.forEach((val, key) => { plainHeaders[key] = val; });
+        options.headers = plainHeaders;
+      }
+      return fetch(url, options);
+    };
 
-/* ---------- Config de módulos ---------- */
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: customFetch }
+    });
+  }
+} catch (e) {
+  console.warn('Supabase no pudo inicializarse, usando modo local:', e);
+}
+
+/* ---------- Configuración de Módulos ---------- */
 const MODULES = {
   finanzas: {
     key: 'erp_finanzas',
     label: 'movimiento',
     fields: [
       {name: 'fecha', label: 'Fecha', type: 'date', required: true},
+      {name: 'tipo', label: 'Tipo', type: 'select', options: ['Ingreso', 'Egreso'], required: true},
+      {name: 'categoria', label: 'Categoría', type: 'text', placeholder: 'Cuotas, Cursos, Nómina...'},
+      {name: 'concepto', label: 'Concepto', type: 'text', required: true},
+      {name: 'monto', label: 'Monto (MXN)', type: 'number', required: true},
+      {name: 'cuenta', label: 'Cuenta / medio', type: 'text', placeholder: 'Banco, caja, transferencia...'}
+    ],
+    columns: ['fecha', 'tipo', 'categoria', 'concepto', 'cuenta', 'monto'],
+    colLabels: ['Fecha', 'Tipo', 'Categoría', 'Concepto', 'Cuenta', 'Monto']
+  },
+  licitaciones: {
+    key: 'erp_licitaciones',
+    label: 'licitación',
+    fields: [
+      {name: 'numero', label: 'Número de licitación', type: 'text', required: true},
+      {name: 'dependencia', label: 'Dependencia', type: 'text', required: true},
+      {name: 'objeto', label: 'Objeto', type: 'textarea'},
+      {name: 'monto', label: 'Monto estimado (MXN)', type: 'number'},
+      {name: 'fechaLimite', label: 'Fecha límite', type: 'date'},
+      {name: 'estado', label: 'Estado', type: 'select', options: ['Por participar', 'En proceso', 'Ganada', 'Perdida', 'Descartada'], required: true},
+      {name: 'prioridad', label: 'Prioridad', type: 'select', options: ['Alta', 'Media', 'Baja']}
+    ],
+    columns: ['numero', 'dependencia', 'fechaLimite', 'estado', 'prioridad', 'monto'],
+    colLabels: ['Número', 'Dependencia', 'Fecha límite', 'Estado', 'Prioridad', 'Monto est.']
+  },
+  miembros: {
+    key: 'erp_miembros',
+    label: 'miembro',
+    fields: [
+      {name: 'nombre', label: 'Nombre o Representante', type: 'text', required: true},
+      {name: 'empresa', label: 'Razón Social / Empresa', type: 'text'},
+      {name: 'folio', label: 'Folio / Registro', type: 'text'},
+      {name: 'telefono', label: 'Teléfono', type: 'text'},
+      {name: 'email', label: 'Correo electrónico', type: 'text'},
+      {name: 'estadoCuota', label: 'Estado de cuota', type: 'select', options: ['Al corriente', 'Pendiente', 'Vencida'], required: true},
+      {name: 'montoCuota', label: 'Monto cuota (MXN)', type: 'number'},
+      {name: 'vencimiento', label: 'Próximo vencimiento', type: 'date'}
+    ],
+    columns: ['folio', 'nombre', 'empresa', 'telefono', 'estadoCuota', 'vencimiento'],
+    colLabels: ['Folio', 'Nombre', 'Empresa', 'Teléfono', 'Estado cuota', 'Vencimiento']
+  },
+  activos: {
+    key: 'erp_activos',
+    label: 'activo',
+    fields: [
+      {name: 'codigo', label: 'Código / Serie', type: 'text', required: true},
+      {name: 'nombre', label: 'Nombre del activo', type: 'text', required: true},
+      {name: 'categoria', label: 'Categoría', type: 'text', placeholder: 'Mobiliario, Equipo, Vehículo...'},
+      {name: 'ubicacion', label: 'Ubicación / Área', type: 'text'},
+      {name: 'responsable', label: 'Responsable', type: 'text'},
+      {name: 'valor', label: 'Valor estim. (MXN)', type: 'number'},
+      {name: 'estado', label: 'Estado', type: 'select', options: ['Operativo', 'Mantenimiento', 'Baja'], required: true}
+    ],
+    columns: ['codigo', 'nombre', 'categoria', 'ubicacion', 'responsable', 'estado', 'valor'],
+    colLabels: ['Código', 'Nombre', 'Categoría', 'Ubicación', 'Responsable', 'Estado', 'Valor']
+  },
+  crm: {
+    key: 'erp_crm',
+    label: 'prospecto',
+    fields: [
+      {name: 'nombre', label: 'Contacto principal', type: 'text', required: true},
+      {name: 'empresa', label: 'Empresa / Dependencia', type: 'text'},
+      {name: 'etapa', label: 'Etapa del embudo', type: 'select', options: ['Prospecto', 'Contactado', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'], required: true},
+      {name: 'monto', label: 'Monto potencial (MXN)', type: 'number'},
+      {name: 'responsable', label: 'Responsable interno', type: 'text'},
+      {name: 'proximaAccion', label: 'Próxima acción', type: 'text'},
+      {name: 'fechaAccion', label: 'Fecha de acción', type: 'date'},
+      {name: 'notas', label: 'Notas', type: 'textarea'}
+    ],
+    columns: [],
+    colLabels: []
+  }
+};
+
+/* ---------- Funciones de Almacenamiento ---------- */
+async function getData(mod) {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('erp_store')
+        .select('value')
+        .eq('key', MODULES[mod].key)
+        .maybeSingle();
+
+      if (!error && data && data.value) {
+        localStorage.setItem(MODULES[mod].key, JSON.stringify(data.value));
+        return data.value;
+      }
+    } catch (e) {
+      console.error('Error conectando con Supabase:', e);
+    }
+  }
+
+  try { return JSON.parse(localStorage.getItem(MODULES[mod].key)) || []; }
+  catch(e) { return []; }
+}
+
+async function setData(mod, arr) {
+  localStorage.setItem(MODULES[mod].key, JSON.stringify(arr));
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient
+        .from('erp_store')
+        .upsert({ key: MODULES[mod].key, value: arr, updated_at: new Date() }, { onConflict: 'key' });
+    } catch(e) {
+      console.error('Error al guardar en Supabase:', e);
+    }
+  }
+}
+
+/* ---------- Navegación ---------- */
+let currentView = 'dashboard';
+let editingModule = null;
+let editingId = null;
+
+function initNavigation() {
+  const items = document.querySelectorAll('#navMenu .nav-item');
+  items.forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('#navMenu .nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      
+      item.classList.add('active');
+      const viewName = item.dataset.view;
+      currentView = viewName;
+      const targetView = document.getElementById(`view-${viewName}`);
+      if (targetView) targetView.classList.add('active');
+      
+      renderCurrentView();
+    });
+  });
+}
+
+function renderCurrentView() {
+  if (currentView === 'dashboard') renderDashboard();
+  else if (currentView === 'crm') renderCRMBoard();
+  else if (MODULES[currentView]) renderTable(currentView);
+}
+
+/* ---------- Utilidades ---------- */
+function fdate(d) {
+  if (!d) return '-';
+  const dt = new Date(d + 'T00:00:00');
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'});
+}
+
+function daysUntil(d) {
+  if (!d) return null;
+  const dt = new Date(d + 'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  return Math.round((dt - now) / 86400000);
+}
+
+function fcurrency(num) {
+  if (num === null || num === undefined || num === '') return '-';
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ---------- Render Tablas ---------- */
+async function renderTable(mod) {
+  const cfg = MODULES[mod];
+  let data = await getData(mod);
+  const container = document.getElementById(`table-${mod}`);
+  if (!container) return;
+  
+  const searchEl = document.getElementById(`search-${mod}`);
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  if (q) {
+    data = data.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(q)));
+  }
+
+  const filterEl = document.querySelector(`#view-${mod} .filter-select`);
+  if (filterEl && filterEl.value) {
+    const filterField = mod === 'finanzas' ? 'tipo' : (mod === 'licitaciones' ? 'estado' : (mod === 'miembros' ? 'estadoCuota' : 'estado'));
+    data = data.filter(r => r[filterField] === filterEl.value);
+  }
+
+  if (!data.length) {
+    container.innerHTML = `<div class="empty-state">No hay registros de ${cfg.label}s.</div>`;
+    return;
+  }
+
+  let html = `<table><thead><tr>`;
+  cfg.colLabels.forEach(l => html += `<th>${l}</th>`);
+  html += `<th style="text-align:right">Acciones</th></tr></thead><tbody>`;
+
+  data.forEach(item => {
+    html += `<tr>`;
+    cfg.columns.forEach(col => {
+      let val = item[col] || '-';
+      let cls = '';
+      if (col === 'monto' || col === 'valor' || col === 'montoCuota') {
+        val = fcurrency(item[col]);
+        cls = 'num';
+      } else if (col === 'fecha' || col === 'fechaLimite' || col === 'vencimiento') {
+        val = fdate(item[col]);
+      } else if (col === 'estado' || col === 'estadoCuota' || col === 'tipo' || col === 'prioridad') {
+        let tagCls = 'tag-gray';
+        if (['Ingreso', 'Ganada', 'Al corriente', 'Operativo'].includes(val)) tagCls = 'tag-green';
+        if (['Egreso', 'Perdida', 'Vencida', 'Baja'].includes(val)) tagCls = 'tag-red';
+        if (['En proceso', 'Pendiente', 'Por participar', 'Mantenimiento', 'Alta'].includes(val)) tagCls = 'tag-amber';
+        val = `<span class="tag ${tagCls}">${val}</span>`;
+      }
+      html += `<td class="${cls}">${val}</td>`;
+    });
+    html += `<td class="actions">
+      <button class="icon-btn" onclick="openModal('${mod}', '${item.id}')">✏️ Editar</button>
+    </td></tr>`;
+  });
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+/* ---------- Render CRM Kanban ---------- */
+async function renderCRMBoard() {
+  let data = await getData('crm');
+  const board = document.getElementById('board-crm');
+  if (!board) return;
+
+  const stages = ['Prospecto', 'Contactado', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'];
+  
+  const searchEl = document.getElementById('search-crm');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  if (q) {
+    data = data.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(q)));
+  }
+
+  const respEl = document.getElementById('filter-crm-responsable');
+  if (respEl) {
+    const resps = [...new Set(data.map(d => d.responsable).filter(Boolean))];
+    respEl.innerHTML = `<option value="">Todos los responsables</option>` + resps.map(r => `<option value="${r}">${r}</option>`).join('');
+  }
+
+  let html = '';
+  stages.forEach(st => {
+    const items = data.filter(d => d.etapa === st);
+    html += `<div class="kanban-col" data-stage="${st}">
+      <div class="kanban-col-head">
+        <span>${st}</span>
+        <span class="kanban-count">${items.length}</span>
+      </div>
+      <div class="kanban-body">`;
     
+    if (!items.length) {
+      html += `<div class="kanban-empty">Sin prospectos</div>`;
+    } else {
+      items.forEach(it => {
+        html += `<div class="kanban-card" onclick="openModal('crm', '${it.id}')">
+          <div class="kc-name">${it.nombre}</div>
+          <div class="kc-empresa">${it.empresa || 'Sin empresa'}</div>
+          <div class="kc-foot">
+            <span class="tag tag-amber">${fcurrency(it.monto)}</span>
+            <span class="kc-action">${it.proximaAccion ? '📌 ' + it.proximaAccion : ''}</span>
+          </div>
+        </div>`;
+      });
+    }
+    html += `</div></div>`;
+  });
+  board.innerHTML = html;
+}
+
+/* ---------- Render Dashboard ---------- */
+async function renderDashboard() {
+  const fin = await getData('finanzas');
+  const lic = await getData('licitaciones');
+  const mie = await getData('miembros');
+  const act = await getData('activos');
+  const crm = await getData('crm');
+
+  const todayEl = document.getElementById('todayDate');
+  if (todayEl) {
+    todayEl.textContent = new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  const ingresos = fin.filter(f => f.tipo === 'Ingreso').reduce((s, f) => s + (Number(f.monto) || 0), 0);
+  const egresos = fin.filter(f => f.tipo === 'Egreso').reduce((s, f) => s + (Number(f.monto) || 0), 0);
+  const balance = ingresos - egresos;
+
+  const dashCards = document.getElementById('dashCards');
+  if (dashCards) {
+    dashCards.innerHTML = `
+      <div class="card c-navy">
+        <div class="card-label">Balance Total</div>
+        <div class="card-value">${fcurrency(balance)}</div>
+        <div class="card-foot">Ingresos: ${fcurrency(ingresos)} | Egresos: ${fcurrency(egresos)}</div>
+      </div>
+      <div class="card c-amber">
+        <div class="card-label">Licitaciones Activas</div>
+        <div class="card-value">${lic.filter(l => ['Por participar', 'En proceso'].includes(l.estado)).length}</div>
+        <div class="card-foot">De ${lic.length} registradas</div>
+      </div>
+      <div class="card c-green">
+        <div class="card-label">Miembros Activos</div>
+        <div class="card-value">${mie.filter(m => m.estadoCuota === 'Al corriente').length}</div>
+        <div class="card-foot">Total afiliados: ${mie.length}</div>
+      </div>
+      <div class="card c-red">
+        <div class="card-label">Oportunidades CRM</div>
+        <div class="card-value">${crm.filter(c => !['Ganado', 'Perdido'].includes(c.etapa)).length}</div>
+        <div class="card-foot">En seguimiento</div>
+      </div>
+    `;
+  }
+
+  const alerts = [];
+  lic.forEach(l => {
+    const days = daysUntil(l.fechaLimite);
+    if (days !== null && days <= 5 && days >= 0 && l.estado !== 'Ganada' && l.estado !== 'Perdida') {
+      alerts.push({ text: `Licitación <b>${l.numero}</b> vence en ${days} días`, tag: 'Licitación', type: 'tag-red' });
+    }
+  });
+  mie.forEach(m => {
+    if (m.estadoCuota === 'Vencida' || m.estadoCuota === 'Pendiente') {
+      alerts.push({ text: `Cuota de <b>${m.nombre}</b> está en estado ${m.estadoCuota}`, tag: 'Miembro', type: 'tag-amber' });
+    }
+  });
+
+  const alertsContainer = document.getElementById('alertsList');
+  if (alertsContainer) {
+    alertsContainer.innerHTML = !alerts.length
+      ? `<div style="font-size:13px; color:var(--steel); padding:10px 0;">No hay alertas pendientes.</div>`
+      : alerts.slice(0, 5).map(a => `<div class="alert-row"><span>${a.text}</span><span class="tag ${a.type}">${a.tag}</span></div>`).join('');
+  }
+
+  const summaryContainer = document.getElementById('moduleSummary');
+  if (summaryContainer) {
+    summaryContainer.innerHTML = `
+      <div class="alert-row"><span>Movimientos financieros</span><b>${fin.length}</b></div>
+      <div class="alert-row"><span>Procesos de licitación</span><b>${lic.length}</b></div>
+      <div class="alert-row"><span>Padrón de miembros</span><b>${mie.length}</b></div>
+      <div class="alert-row"><span>Activos inventariados</span><b>${act.length}</b></div>
+      <div class="alert-row"><span>Prospectos en CRM</span><b>${crm.length}</b></div>
+    `;
+  }
+}
+
+/* ---------- Gestor Modal (Crear / Editar) ---------- */
+async function openModal(mod, id = null) {
+  editingModule = mod;
+  editingId = id;
+  const cfg = MODULES[mod];
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  const deleteBtn = document.getElementById('modalDeleteBtn');
+
+  if (modalTitle) modalTitle.textContent = id ? `Editar ${cfg.label}` : `Nuevo ${cfg.label}`;
+  if (deleteBtn) deleteBtn.style.display = id ? 'block' : 'none';
+
+  let currentData = {};
+  if (id) {
+    const list = await getData(mod);
+    currentData = list.find(r => r.id === id) || {};
+  }
+
+  let fieldsHtml = '';
+  cfg.fields.forEach(f => {
+    const val = currentData[f.name] !== undefined ? currentData[f.name] : '';
+    fieldsHtml += `<div class="field"><label>${f.label}${f.required ? ' *' : ''}</label>`;
+    if (f.type === 'select') {
+      fieldsHtml += `<select name="${f.name}">` +
+        f.options.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('') +
+        `</select>`;
+    } else if (f.type === 'textarea') {
+      fieldsHtml += `<textarea name="${f.name}">${val}</textarea>`;
+    } else {
+      fieldsHtml += `<input type="${f.type}" name="${f.name}" value="${val}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''}>`;
+    }
+    fieldsHtml += `</div>`;
+  });
+
+  if (modalBody) modalBody.innerHTML = fieldsHtml;
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.classList.add('active');
+}
+
+function closeModal() {
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.classList.remove('active');
+  editingModule = null;
+  editingId = null;
+}
+
+async function saveRecord() {
+  const inputs = document.querySelectorAll('#modalBody [name]');
+  const record = { id: editingId || 'id_' + Date.now() };
+
+  for (let input of inputs) {
+    if (input.hasAttribute('required') && !input.value.trim()) {
+      showToast('Por favor completa los campos obligatorios');
+      return;
+    }
+    record[input.name] = input.value;
+  }
+
+  const list = await getData(editingModule);
+  if (editingId) {
+    const idx = list.findIndex(r => r.id === editingId);
+    if (idx !== -1) list[idx] = record;
+  } else {
+    list.push(record);
+  }
+
+  await setData(editingModule, list);
+  closeModal();
+  showToast('Registro guardado exitosamente');
+  renderCurrentView();
+}
+
+async function deleteRecord(mod, id) {
+  if (!confirm('¿Estás seguro de eliminar este registro?')) return;
+  let list = await getData(mod);
+  list = list.filter(r => r.id !== id);
+  await setData(mod, list);
+  showToast('Registro eliminado');
+  renderCurrentView();
+}
+
+/* ---------- Arranque al cargar el DOM ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  initNavigation();
+  renderDashboard();
+});
+</script>
+</body>
+</html>
