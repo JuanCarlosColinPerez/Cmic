@@ -592,9 +592,10 @@ function daysUntil(d){
 }
 
 /* ---------- Render tablas ---------- */
-function renderTable(mod){
+async function renderTable(mod){
   const cfg = MODULES[mod];
-  let data = getData(mod);
+  let data = await getData(mod);
+
   const searchEl = document.getElementById('search-'+mod);
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   if(q){
@@ -652,8 +653,9 @@ function renderTable(mod){
 }
 
 /* ---------- Tablero CRM (Kanban) ---------- */
-function renderCRMBoard(){
-  let data = getData('crm');
+async function renderCRMBoard(){
+  let data = await getData('crm');
+
   const q = (document.getElementById('search-crm')?.value || '').trim().toLowerCase();
   if(q){
     data = data.filter(r => Object.values(r).some(v => String(v||'').toLowerCase().includes(q)));
@@ -773,12 +775,13 @@ function showToast(msg){
 }
 
 /* ---------- Dashboard ---------- */
-function renderDashboard(){
-  const fin = getData('finanzas');
-  const lic = getData('licitaciones');
-  const mie = getData('miembros');
-  const act = getData('activos');
-  const crm = getData('crm');
+async function renderDashboard(){
+  const fin = await getData('finanzas');
+  const lic = await getData('licitaciones');
+  const mie = await getData('miembros');
+  const act = await getData('activos');
+  const crm = await getData('crm');
+
 
   const ingresos = fin.filter(r=>r.tipo==='Ingreso').reduce((s,r)=>s+Number(r.monto||0),0);
   const egresos = fin.filter(r=>r.tipo==='Egreso').reduce((s,r)=>s+Number(r.monto||0),0);
