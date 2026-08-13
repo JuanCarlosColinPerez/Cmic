@@ -435,6 +435,39 @@
 <div class="toast" id="toast"></div>
 
 <script>
+
+/* ---------- Configuración de Supabase ---------- */
+const SUPABASE_URL = 'https://TU_PROYECTO.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_AQUI_PEGA_TU_CLAVE';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ---------- Almacenamiento Sincronizado ---------- */
+async function getData(mod) {
+  const { data, error } = await supabaseClient
+    .from('erp_store')
+    .select('value')
+    .eq('key', MODULES[mod].key)
+    .single();
+
+  if (data && data.value) {
+    localStorage.setItem(MODULES[mod].key, JSON.stringify(data.value));
+    return data.value;
+  }
+  
+  try { return JSON.parse(localStorage.getItem(MODULES[mod].key)) || []; }
+  catch(e) { return []; }
+}
+
+async function setData(mod, arr) {
+  localStorage.setItem(MODULES[mod].key, JSON.stringify(arr));
+  
+  const { error } = await supabaseClient
+    .from('erp_store')
+    .upsert({ key: MODULES[mod].key, value: arr, updated_at: new Date() }, { onConflict: 'key' });
+
+  if (error) console.error('Error al guardar en Supabase:', error);
+}
+
 /* ---------- Config de módulos ---------- */
 const MODULES = {
   finanzas: {
