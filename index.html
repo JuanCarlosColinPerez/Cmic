@@ -23,7 +23,7 @@ try {
     });
   }
 } catch (e) {
-  console.warn('Supabase no pudo inicializarse, usando modo local:', e);
+  console.warn('Supabase no inicializado, usando almacenamiento local:', e);
 }
 
 /* ---------- Configuración de Módulos ---------- */
@@ -106,7 +106,7 @@ const MODULES = {
   }
 };
 
-/* ---------- Funciones de Almacenamiento ---------- */
+/* ---------- Persistencia de Datos ---------- */
 async function getData(mod) {
   if (supabaseClient) {
     try {
@@ -121,17 +121,15 @@ async function getData(mod) {
         return data.value;
       }
     } catch (e) {
-      console.error('Error conectando con Supabase:', e);
+      console.error('Error al leer de Supabase:', e);
     }
   }
-
   try { return JSON.parse(localStorage.getItem(MODULES[mod].key)) || []; }
   catch(e) { return []; }
 }
 
 async function setData(mod, arr) {
   localStorage.setItem(MODULES[mod].key, JSON.stringify(arr));
-
   if (supabaseClient) {
     try {
       await supabaseClient
@@ -143,7 +141,7 @@ async function setData(mod, arr) {
   }
 }
 
-/* ---------- Navegación ---------- */
+/* ---------- Estado y Navegación ---------- */
 let currentView = 'dashboard';
 let editingModule = null;
 let editingId = null;
@@ -156,9 +154,8 @@ function initNavigation() {
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       
       item.classList.add('active');
-      const viewName = item.dataset.view;
-      currentView = viewName;
-      const targetView = document.getElementById(`view-${viewName}`);
+      currentView = item.dataset.view;
+      const targetView = document.getElementById(`view-${currentView}`);
       if (targetView) targetView.classList.add('active');
       
       renderCurrentView();
@@ -172,12 +169,11 @@ function renderCurrentView() {
   else if (MODULES[currentView]) renderTable(currentView);
 }
 
-/* ---------- Utilidades ---------- */
+/* ---------- Formateadores y Notificaciones ---------- */
 function fdate(d) {
   if (!d) return '-';
   const dt = new Date(d + 'T00:00:00');
-  if (isNaN(dt)) return d;
-  return dt.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'});
+  return isNaN(dt) ? d : dt.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'});
 }
 
 function daysUntil(d) {
@@ -200,7 +196,7 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-/* ---------- Render Tablas ---------- */
+/* ---------- Vistas ---------- */
 async function renderTable(mod) {
   const cfg = MODULES[mod];
   let data = await getData(mod);
@@ -220,7 +216,7 @@ async function renderTable(mod) {
   }
 
   if (!data.length) {
-    container.innerHTML = `<div class="empty-state">No hay registros de ${cfg.label}s.</div>`;
+    container.innerHTML = `<div class="empty-state">No hay registros registrados.</div>`;
     return;
   }
 
@@ -233,12 +229,12 @@ async function renderTable(mod) {
     cfg.columns.forEach(col => {
       let val = item[col] || '-';
       let cls = '';
-      if (col === 'monto' || col === 'valor' || col === 'montoCuota') {
+      if (['monto', 'valor', 'montoCuota'].includes(col)) {
         val = fcurrency(item[col]);
         cls = 'num';
-      } else if (col === 'fecha' || col === 'fechaLimite' || col === 'vencimiento') {
+      } else if (['fecha', 'fechaLimite', 'vencimiento'].includes(col)) {
         val = fdate(item[col]);
-      } else if (col === 'estado' || col === 'estadoCuota' || col === 'tipo' || col === 'prioridad') {
+      } else if (['estado', 'estadoCuota', 'tipo', 'prioridad'].includes(col)) {
         let tagCls = 'tag-gray';
         if (['Ingreso', 'Ganada', 'Al corriente', 'Operativo'].includes(val)) tagCls = 'tag-green';
         if (['Egreso', 'Perdida', 'Vencida', 'Baja'].includes(val)) tagCls = 'tag-red';
@@ -256,24 +252,16 @@ async function renderTable(mod) {
   container.innerHTML = html;
 }
 
-/* ---------- Render CRM Kanban ---------- */
 async function renderCRMBoard() {
   let data = await getData('crm');
   const board = document.getElementById('board-crm');
   if (!board) return;
 
   const stages = ['Prospecto', 'Contactado', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'];
-  
   const searchEl = document.getElementById('search-crm');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   if (q) {
     data = data.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(q)));
-  }
-
-  const respEl = document.getElementById('filter-crm-responsable');
-  if (respEl) {
-    const resps = [...new Set(data.map(d => d.responsable).filter(Boolean))];
-    respEl.innerHTML = `<option value="">Todos los responsables</option>` + resps.map(r => `<option value="${r}">${r}</option>`).join('');
   }
 
   let html = '';
@@ -305,7 +293,6 @@ async function renderCRMBoard() {
   board.innerHTML = html;
 }
 
-/* ---------- Render Dashboard ---------- */
 async function renderDashboard() {
   const fin = await getData('finanzas');
   const lic = await getData('licitaciones');
@@ -320,14 +307,13 @@ async function renderDashboard() {
 
   const ingresos = fin.filter(f => f.tipo === 'Ingreso').reduce((s, f) => s + (Number(f.monto) || 0), 0);
   const egresos = fin.filter(f => f.tipo === 'Egreso').reduce((s, f) => s + (Number(f.monto) || 0), 0);
-  const balance = ingresos - egresos;
 
   const dashCards = document.getElementById('dashCards');
   if (dashCards) {
     dashCards.innerHTML = `
       <div class="card c-navy">
         <div class="card-label">Balance Total</div>
-        <div class="card-value">${fcurrency(balance)}</div>
+        <div class="card-value">${fcurrency(ingresos - egresos)}</div>
         <div class="card-foot">Ingresos: ${fcurrency(ingresos)} | Egresos: ${fcurrency(egresos)}</div>
       </div>
       <div class="card c-amber">
@@ -347,54 +333,25 @@ async function renderDashboard() {
       </div>
     `;
   }
-
-  const alerts = [];
-  lic.forEach(l => {
-    const days = daysUntil(l.fechaLimite);
-    if (days !== null && days <= 5 && days >= 0 && l.estado !== 'Ganada' && l.estado !== 'Perdida') {
-      alerts.push({ text: `Licitación <b>${l.numero}</b> vence en ${days} días`, tag: 'Licitación', type: 'tag-red' });
-    }
-  });
-  mie.forEach(m => {
-    if (m.estadoCuota === 'Vencida' || m.estadoCuota === 'Pendiente') {
-      alerts.push({ text: `Cuota de <b>${m.nombre}</b> está en estado ${m.estadoCuota}`, tag: 'Miembro', type: 'tag-amber' });
-    }
-  });
-
-  const alertsContainer = document.getElementById('alertsList');
-  if (alertsContainer) {
-    alertsContainer.innerHTML = !alerts.length
-      ? `<div style="font-size:13px; color:var(--steel); padding:10px 0;">No hay alertas pendientes.</div>`
-      : alerts.slice(0, 5).map(a => `<div class="alert-row"><span>${a.text}</span><span class="tag ${a.type}">${a.tag}</span></div>`).join('');
-  }
-
-  const summaryContainer = document.getElementById('moduleSummary');
-  if (summaryContainer) {
-    summaryContainer.innerHTML = `
-      <div class="alert-row"><span>Movimientos financieros</span><b>${fin.length}</b></div>
-      <div class="alert-row"><span>Procesos de licitación</span><b>${lic.length}</b></div>
-      <div class="alert-row"><span>Padrón de miembros</span><b>${mie.length}</b></div>
-      <div class="alert-row"><span>Activos inventariados</span><b>${act.length}</b></div>
-      <div class="alert-row"><span>Prospectos en CRM</span><b>${crm.length}</b></div>
-    `;
-  }
 }
 
 /* ---------- Gestor Modal (Crear / Editar) ---------- */
 async function openModal(mod, id = null) {
-  editingModule = mod;
+  editingModule = mod || currentView;
+  if (!MODULES[editingModule]) return;
+
   editingId = id;
-  const cfg = MODULES[mod];
+  const cfg = MODULES[editingModule];
   const modalTitle = document.getElementById('modalTitle');
   const modalBody = document.getElementById('modalBody');
   const deleteBtn = document.getElementById('modalDeleteBtn');
 
   if (modalTitle) modalTitle.textContent = id ? `Editar ${cfg.label}` : `Nuevo ${cfg.label}`;
-  if (deleteBtn) deleteBtn.style.display = id ? 'block' : 'none';
+  if (deleteBtn) deleteBtn.style.display = id ? 'inline-block' : 'none';
 
   let currentData = {};
   if (id) {
-    const list = await getData(mod);
+    const list = await getData(editingModule);
     currentData = list.find(r => r.id === id) || {};
   }
 
@@ -427,12 +384,13 @@ function closeModal() {
 }
 
 async function saveRecord() {
+  if (!editingModule) return;
   const inputs = document.querySelectorAll('#modalBody [name]');
   const record = { id: editingId || 'id_' + Date.now() };
 
   for (let input of inputs) {
     if (input.hasAttribute('required') && !input.value.trim()) {
-      showToast('Por favor completa los campos obligatorios');
+      showToast('Por favor completa todos los campos obligatorios (*)');
       return;
     }
     record[input.name] = input.value;
@@ -448,24 +406,52 @@ async function saveRecord() {
 
   await setData(editingModule, list);
   closeModal();
-  showToast('Registro guardado exitosamente');
+  showToast('Registro guardado correctamente');
   renderCurrentView();
 }
 
-async function deleteRecord(mod, id) {
-  if (!confirm('¿Estás seguro de eliminar este registro?')) return;
-  let list = await getData(mod);
-  list = list.filter(r => r.id !== id);
-  await setData(mod, list);
+async function deleteRecord() {
+  if (!editingModule || !editingId) return;
+  if (!confirm('¿Deseas eliminar este registro de manera definitiva?')) return;
+  let list = await getData(editingModule);
+  list = list.filter(r => r.id !== editingId);
+  await setData(editingModule, list);
+  closeModal();
   showToast('Registro eliminado');
   renderCurrentView();
 }
 
-/* ---------- Arranque al cargar el DOM ---------- */
+/* ---------- Asignación Global de Eventos e Inicialización ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   renderDashboard();
+
+  // Escuchar botones de apertura de modal (+ Nuevo)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="new-record"]');
+    if (btn) {
+      const mod = btn.dataset.module || currentView;
+      openModal(mod);
+    }
+  });
+
+  // Vinculación de botones del Modal
+  const saveBtn = document.getElementById('modalSaveBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveRecord);
+
+  const closeBtn = document.getElementById('modalCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+  const deleteBtn = document.getElementById('modalDeleteBtn');
+  if (deleteBtn) deleteBtn.addEventListener('click', deleteRecord);
+
+  // Filtros en tiempo real para buscadores
+  document.querySelectorAll('input[id^="search-"]').forEach(input => {
+    input.addEventListener('input', () => renderCurrentView());
+  });
+
+  document.querySelectorAll('.filter-select').forEach(select => {
+    select.addEventListener('change', () => renderCurrentView());
+  });
 });
 </script>
-</body>
-</html>
