@@ -1,457 +1,437 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* ---------- Configuración Segura de Supabase ---------- */
-const SUPABASE_URL = 'https://nuxipyqrutvaaoqhqmzl.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_F3PsWbC9rwMJfxwwTYqQvg_Ck6JjFeT';
-
-let supabaseClient = null;
-
-try {
-  if (typeof supabase !== 'undefined') {
-    const customFetch = (url, options = {}) => {
-      if (options.headers && typeof options.headers.forEach === 'function') {
-        const plainHeaders = {};
-        options.headers.forEach((val, key) => { plainHeaders[key] = val; });
-        options.headers = plainHeaders;
-      }
-      return fetch(url, options);
-    };
-
-    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      global: { fetch: customFetch }
-    });
-  }
-} catch (e) {
-  console.warn('Supabase no inicializado, usando almacenamiento local:', e);
-}
-
-/* ---------- Configuración de Módulos ---------- */
-const MODULES = {
-  finanzas: {
-    key: 'erp_finanzas',
-    label: 'movimiento',
-    fields: [
-      {name: 'fecha', label: 'Fecha', type: 'date', required: true},
-      {name: 'tipo', label: 'Tipo', type: 'select', options: ['Ingreso', 'Egreso'], required: true},
-      {name: 'categoria', label: 'Categoría', type: 'text', placeholder: 'Cuotas, Cursos, Nómina...'},
-      {name: 'concepto', label: 'Concepto', type: 'text', required: true},
-      {name: 'monto', label: 'Monto (MXN)', type: 'number', required: true},
-      {name: 'cuenta', label: 'Cuenta / medio', type: 'text', placeholder: 'Banco, caja, transferencia...'}
-    ],
-    columns: ['fecha', 'tipo', 'categoria', 'concepto', 'cuenta', 'monto'],
-    colLabels: ['Fecha', 'Tipo', 'Categoría', 'Concepto', 'Cuenta', 'Monto']
-  },
-  licitaciones: {
-    key: 'erp_licitaciones',
-    label: 'licitación',
-    fields: [
-      {name: 'numero', label: 'Número de licitación', type: 'text', required: true},
-      {name: 'dependencia', label: 'Dependencia', type: 'text', required: true},
-      {name: 'objeto', label: 'Objeto', type: 'textarea'},
-      {name: 'monto', label: 'Monto estimado (MXN)', type: 'number'},
-      {name: 'fechaLimite', label: 'Fecha límite', type: 'date'},
-      {name: 'estado', label: 'Estado', type: 'select', options: ['Por participar', 'En proceso', 'Ganada', 'Perdida', 'Descartada'], required: true},
-      {name: 'prioridad', label: 'Prioridad', type: 'select', options: ['Alta', 'Media', 'Baja']}
-    ],
-    columns: ['numero', 'dependencia', 'fechaLimite', 'estado', 'prioridad', 'monto'],
-    colLabels: ['Número', 'Dependencia', 'Fecha límite', 'Estado', 'Prioridad', 'Monto est.']
-  },
-  miembros: {
-    key: 'erp_miembros',
-    label: 'miembro',
-    fields: [
-      {name: 'nombre', label: 'Nombre o Representante', type: 'text', required: true},
-      {name: 'empresa', label: 'Razón Social / Empresa', type: 'text'},
-      {name: 'folio', label: 'Folio / Registro', type: 'text'},
-      {name: 'telefono', label: 'Teléfono', type: 'text'},
-      {name: 'email', label: 'Correo electrónico', type: 'text'},
-      {name: 'estadoCuota', label: 'Estado de cuota', type: 'select', options: ['Al corriente', 'Pendiente', 'Vencida'], required: true},
-      {name: 'montoCuota', label: 'Monto cuota (MXN)', type: 'number'},
-      {name: 'vencimiento', label: 'Próximo vencimiento', type: 'date'}
-    ],
-    columns: ['folio', 'nombre', 'empresa', 'telefono', 'estadoCuota', 'vencimiento'],
-    colLabels: ['Folio', 'Nombre', 'Empresa', 'Teléfono', 'Estado cuota', 'Vencimiento']
-  },
-  activos: {
-    key: 'erp_activos',
-    label: 'activo',
-    fields: [
-      {name: 'codigo', label: 'Código / Serie', type: 'text', required: true},
-      {name: 'nombre', label: 'Nombre del activo', type: 'text', required: true},
-      {name: 'categoria', label: 'Categoría', type: 'text', placeholder: 'Mobiliario, Equipo, Vehículo...'},
-      {name: 'ubicacion', label: 'Ubicación / Área', type: 'text'},
-      {name: 'responsable', label: 'Responsable', type: 'text'},
-      {name: 'valor', label: 'Valor estim. (MXN)', type: 'number'},
-      {name: 'estado', label: 'Estado', type: 'select', options: ['Operativo', 'Mantenimiento', 'Baja'], required: true}
-    ],
-    columns: ['codigo', 'nombre', 'categoria', 'ubicacion', 'responsable', 'estado', 'valor'],
-    colLabels: ['Código', 'Nombre', 'Categoría', 'Ubicación', 'Responsable', 'Estado', 'Valor']
-  },
-  crm: {
-    key: 'erp_crm',
-    label: 'prospecto',
-    fields: [
-      {name: 'nombre', label: 'Contacto principal', type: 'text', required: true},
-      {name: 'empresa', label: 'Empresa / Dependencia', type: 'text'},
-      {name: 'etapa', label: 'Etapa del embudo', type: 'select', options: ['Prospecto', 'Contactado', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'], required: true},
-      {name: 'monto', label: 'Monto potencial (MXN)', type: 'number'},
-      {name: 'responsable', label: 'Responsable interno', type: 'text'},
-      {name: 'proximaAccion', label: 'Próxima acción', type: 'text'},
-      {name: 'fechaAccion', label: 'Fecha de acción', type: 'date'},
-      {name: 'notas', label: 'Notas', type: 'textarea'}
-    ],
-    columns: [],
-    colLabels: []
-  }
-};
-
-/* ---------- Persistencia de Datos ---------- */
-async function getData(mod) {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('erp_store')
-        .select('value')
-        .eq('key', MODULES[mod].key)
-        .maybeSingle();
-
-      if (!error && data && data.value) {
-        localStorage.setItem(MODULES[mod].key, JSON.stringify(data.value));
-        return data.value;
-      }
-    } catch (e) {
-      console.error('Error al leer de Supabase:', e);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema ERP - CMIC</title>
+  <style>
+    :root {
+      --navy: #1B365D;
+      --navy-dark: #11223F;
+      --amber: #D97706;
+      --green: #059669;
+      --red: #DC2626;
+      --steel: #64748B;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #1E293B;
     }
-  }
-  try { return JSON.parse(localStorage.getItem(MODULES[mod].key)) || []; }
-  catch(e) { return []; }
-}
 
-async function setData(mod, arr) {
-  localStorage.setItem(MODULES[mod].key, JSON.stringify(arr));
-  if (supabaseClient) {
-    try {
-      await supabaseClient
-        .from('erp_store')
-        .upsert({ key: MODULES[mod].key, value: arr, updated_at: new Date() }, { onConflict: 'key' });
-    } catch(e) {
-      console.error('Error al guardar en Supabase:', e);
-    }
-  }
-}
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
 
-/* ---------- Estado y Navegación ---------- */
-let currentView = 'dashboard';
-let editingModule = null;
-let editingId = null;
+    /* Layout Sidebar */
+    .sidebar { width: 250px; background: var(--navy); color: #FFF; display: flex; flex-direction: column; flex-shrink: 0; }
+    .brand { padding: 20px; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); background: var(--navy-dark); }
+    .nav-menu { list-style: none; padding: 10px 0; }
+    .nav-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #CBD5E1; transition: 0.2s; }
+    .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.1); color: #FFF; font-weight: 600; border-left: 4px solid var(--amber); }
 
-function initNavigation() {
-  const items = document.querySelectorAll('#navMenu .nav-item');
-  items.forEach(item => {
-    item.addEventListener('click', () => {
-      document.querySelectorAll('#navMenu .nav-item').forEach(i => i.classList.remove('active'));
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      
-      item.classList.add('active');
-      currentView = item.dataset.view;
-      const targetView = document.getElementById(`view-${currentView}`);
-      if (targetView) targetView.classList.add('active');
-      
-      renderCurrentView();
-    });
-  });
-}
+    /* Main Content */
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+    .header { background: #FFF; padding: 15px 30px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .view { display: none; padding: 30px; }
+    .view.active { display: block; }
 
-function renderCurrentView() {
-  if (currentView === 'dashboard') renderDashboard();
-  else if (currentView === 'crm') renderCRMBoard();
-  else if (MODULES[currentView]) renderTable(currentView);
-}
+    /* Componentes */
+    .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+    .btn-primary { background: var(--navy); color: white; }
+    .btn-primary:hover { background: var(--navy-dark); }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-secondary { background: #E2E8F0; color: var(--text); }
+    .icon-btn { background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 0.9rem; }
 
-/* ---------- Formateadores y Notificaciones ---------- */
-function fdate(d) {
-  if (!d) return '-';
-  const dt = new Date(d + 'T00:00:00');
-  return isNaN(dt) ? d : dt.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'});
-}
+    /* Cards & Grids */
+    .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card-label { font-size: 0.85rem; color: var(--steel); margin-bottom: 5px; }
+    .card-value { font-size: 1.6rem; font-weight: bold; margin-bottom: 5px; }
+    .card-foot { font-size: 0.8rem; color: var(--steel); }
 
-function daysUntil(d) {
-  if (!d) return null;
-  const dt = new Date(d + 'T00:00:00');
-  const now = new Date(); now.setHours(0,0,0,0);
-  return Math.round((dt - now) / 86400000);
-}
+    /* Tablas */
+    .table-tools { display: flex; gap: 15px; margin-bottom: 15px; justify-content: space-between; align-items: center; }
+    .search-input, .filter-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; outline: none; }
+    table { width: 100%; border-collapse: collapse; background: #FFF; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    th { background: #F1F5F9; font-weight: 600; color: var(--steel); }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.actions { text-align: right; }
 
-function fcurrency(num) {
-  if (num === null || num === undefined || num === '') return '-';
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
-}
+    /* Kanban CRM */
+    .kanban-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .kanban-col { background: #F1F5F9; border-radius: 8px; padding: 12px; min-height: 400px; }
+    .kanban-col-head { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.85rem; margin-bottom: 12px; color: var(--steel); }
+    .kanban-card { background: #FFF; padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 10px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .kc-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+    .kc-empresa { font-size: 0.8rem; color: var(--steel); margin-bottom: 8px; }
+    .kc-foot { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  if (!t) return;
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
-}
+    /* Tags */
+    .tag { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+    .tag-green { background: #D1FAE5; color: #065F46; }
+    .tag-red { background: #FEE2E2; color: #991B1B; }
+    .tag-amber { background: #FEF3C7; color: #92400E; }
+    .tag-gray { background: #E2E8F0; color: #475569; }
 
-/* ---------- Vistas ---------- */
-async function renderTable(mod) {
-  const cfg = MODULES[mod];
-  let data = await getData(mod);
-  const container = document.getElementById(`table-${mod}`);
-  if (!container) return;
-  
-  const searchEl = document.getElementById(`search-${mod}`);
-  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
-  if (q) {
-    data = data.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(q)));
-  }
+    /* Modal Overlay */
+    .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.2s; z-index: 999; }
+    .overlay.active { opacity: 1; pointer-events: auto; }
+    .modal { background: #FFF; width: 100%; max-width: 500px; border-radius: 8px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 4px; }
+    .field input, .field select, .field textarea { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
 
-  const filterEl = document.querySelector(`#view-${mod} .filter-select`);
-  if (filterEl && filterEl.value) {
-    const filterField = mod === 'finanzas' ? 'tipo' : (mod === 'licitaciones' ? 'estado' : (mod === 'miembros' ? 'estadoCuota' : 'estado'));
-    data = data.filter(r => r[filterField] === filterEl.value);
-  }
+    /* Toast */
+    .toast { position: fixed; bottom: 20px; right: 20px; background: var(--navy); color: #FFF; padding: 12px 20px; border-radius: 6px; display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .toast.show { display: block; animation: fadeIn 0.3s; }
+  </style>
+</head>
+<body>
 
-  if (!data.length) {
-    container.innerHTML = `<div class="empty-state">No hay registros registrados.</div>`;
-    return;
-  }
+  <!-- Sidebar Nav -->
+  <div class="sidebar">
+    <div class="brand">ERP CMIC</div>
+    <ul class="nav-menu" id="navMenu">
+      <li class="nav-item active" data-view="dashboard">📊 Tablero Principal</li>
+      <li class="nav-item" data-view="finanzas">💰 Finanzas</li>
+      <li class="nav-item" data-view="licitaciones">📑 Licitaciones</li>
+      <li class="nav-item" data-view="miembros">👥 Miembros</li>
+      <li class="nav-item" data-view="activos">📦 Activos</li>
+      <li class="nav-item" data-view="crm">🤝 CRM Prospectos</li>
+    </ul>
+  </div>
 
-  let html = `<table><thead><tr>`;
-  cfg.colLabels.forEach(l => html += `<th>${l}</th>`);
-  html += `<th style="text-align:right">Acciones</th></tr></thead><tbody>`;
+  <!-- Main Work Area -->
+  <div class="main-content">
+    <div class="header">
+      <h2 id="viewTitle">Tablero General</h2>
+      <div id="todayDate" style="font-size: 0.85rem; color: var(--steel);"></div>
+    </div>
 
-  data.forEach(item => {
-    html += `<tr>`;
-    cfg.columns.forEach(col => {
-      let val = item[col] || '-';
-      let cls = '';
-      if (['monto', 'valor', 'montoCuota'].includes(col)) {
-        val = fcurrency(item[col]);
-        cls = 'num';
-      } else if (['fecha', 'fechaLimite', 'vencimiento'].includes(col)) {
-        val = fdate(item[col]);
-      } else if (['estado', 'estadoCuota', 'tipo', 'prioridad'].includes(col)) {
-        let tagCls = 'tag-gray';
-        if (['Ingreso', 'Ganada', 'Al corriente', 'Operativo'].includes(val)) tagCls = 'tag-green';
-        if (['Egreso', 'Perdida', 'Vencida', 'Baja'].includes(val)) tagCls = 'tag-red';
-        if (['En proceso', 'Pendiente', 'Por participar', 'Mantenimiento', 'Alta'].includes(val)) tagCls = 'tag-amber';
-        val = `<span class="tag ${tagCls}">${val}</span>`;
-      }
-      html += `<td class="${cls}">${val}</td>`;
-    });
-    html += `<td class="actions">
-      <button class="icon-btn" onclick="openModal('${mod}', '${item.id}')">✏️ Editar</button>
-    </td></tr>`;
-  });
-
-  html += `</tbody></table>`;
-  container.innerHTML = html;
-}
-
-async function renderCRMBoard() {
-  let data = await getData('crm');
-  const board = document.getElementById('board-crm');
-  if (!board) return;
-
-  const stages = ['Prospecto', 'Contactado', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'];
-  const searchEl = document.getElementById('search-crm');
-  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
-  if (q) {
-    data = data.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(q)));
-  }
-
-  let html = '';
-  stages.forEach(st => {
-    const items = data.filter(d => d.etapa === st);
-    html += `<div class="kanban-col" data-stage="${st}">
-      <div class="kanban-col-head">
-        <span>${st}</span>
-        <span class="kanban-count">${items.length}</span>
+    <!-- VISTA: DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="grid-cards" id="dashCards"></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="card">
+          <h3 style="margin-bottom:15px; font-size:1rem;">Alertas y Vencimientos</h3>
+          <div id="alertsList"></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:15px; font-size:1rem;">Resumen de Módulos</h3>
+          <div id="moduleSummary"></div>
+        </div>
       </div>
-      <div class="kanban-body">`;
-    
-    if (!items.length) {
-      html += `<div class="kanban-empty">Sin prospectos</div>`;
-    } else {
-      items.forEach(it => {
-        html += `<div class="kanban-card" onclick="openModal('crm', '${it.id}')">
-          <div class="kc-name">${it.nombre}</div>
-          <div class="kc-empresa">${it.empresa || 'Sin empresa'}</div>
-          <div class="kc-foot">
-            <span class="tag tag-amber">${fcurrency(it.monto)}</span>
-            <span class="kc-action">${it.proximaAccion ? '📌 ' + it.proximaAccion : ''}</span>
-          </div>
-        </div>`;
+    </div>
+
+    <!-- VISTA: FINANZAS -->
+    <div class="view" id="view-finanzas">
+      <div class="table-tools">
+        <input type="text" class="search-input" id="search-finanzas" placeholder="Buscar movimiento...">
+        <div>
+          <select class="filter-select">
+            <option value="">Todos los tipos</option>
+            <option value="Ingreso">Ingresos</option>
+            <option value="Egreso">Egresos</option>
+          </select>
+          <button class="btn btn-primary" data-action="new-record" data-module="finanzas">+ Nuevo Movimiento</button>
+        </div>
+      </div>
+      <div id="table-finanzas"></div>
+    </div>
+
+    <!-- VISTA: LICITACIONES -->
+    <div class="view" id="view-licitaciones">
+      <div class="table-tools">
+        <input type="text" class="search-input" id="search-licitaciones" placeholder="Buscar licitación...">
+        <button class="btn btn-primary" data-action="new-record" data-module="licitaciones">+ Nueva Licitación</button>
+      </div>
+      <div id="table-licitaciones"></div>
+    </div>
+
+    <!-- VISTA: MIEMBROS -->
+    <div class="view" id="view-miembros">
+      <div class="table-tools">
+        <input type="text" class="search-input" id="search-miembros" placeholder="Buscar miembro...">
+        <button class="btn btn-primary" data-action="new-record" data-module="miembros">+ Nuevo Miembro</button>
+      </div>
+      <div id="table-miembros"></div>
+    </div>
+
+    <!-- VISTA: ACTIVOS -->
+    <div class="view" id="view-activos">
+      <div class="table-tools">
+        <input type="text" class="search-input" id="search-activos" placeholder="Buscar activo...">
+        <button class="btn btn-primary" data-action="new-record" data-module="activos">+ Nuevo Activo</button>
+      </div>
+      <div id="table-activos"></div>
+    </div>
+
+    <!-- VISTA: CRM -->
+    <div class="view" id="view-crm">
+      <div class="table-tools">
+        <input type="text" class="search-input" id="search-crm" placeholder="Buscar prospecto...">
+        <button class="btn btn-primary" data-action="new-record" data-module="crm">+ Nuevo Prospecto</button>
+      </div>
+      <div class="kanban-board" id="board-crm"></div>
+    </div>
+  </div>
+
+  <!-- MODAL FLOTANTE (FORMULARIO DINÁMICO) -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">Nuevo Registro</h3>
+        <button class="icon-btn" id="modalCloseBtn">✕</button>
+      </div>
+      <div id="modalBody"></div>
+      <div style="margin-top: 20px; display: flex; justify-content: space-between;">
+        <button class="btn btn-danger" id="modalDeleteBtn" style="display:none;">Eliminar</button>
+        <div style="display:flex; gap:10px; margin-left:auto;">
+          <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-primary" id="modalSaveBtn">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- SUPABASE & SCRIPT DE INTERACCIÓN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+  /* ---------- Inicialización Segura de Supabase ---------- */
+  const SUPABASE_URL = 'https://nuxipyqrutvaaoqhqmzl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_F3PsWbC9rwMJfxwwTYqQvg_Ck6JjFeT';
+
+  let supabaseClient = null;
+
+  try {
+    if (typeof supabase !== 'undefined') {
+      const customFetch = (url, options = {}) => {
+        if (options.headers && typeof options.headers.forEach === 'function') {
+          const plainHeaders = {};
+          options.headers.forEach((val, key) => { plainHeaders[key] = val; });
+          options.headers = plainHeaders;
+        }
+        return fetch(url, options);
+      };
+
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        global: { fetch: customFetch }
       });
     }
-    html += `</div></div>`;
-  });
-  board.innerHTML = html;
-}
-
-async function renderDashboard() {
-  const fin = await getData('finanzas');
-  const lic = await getData('licitaciones');
-  const mie = await getData('miembros');
-  const act = await getData('activos');
-  const crm = await getData('crm');
-
-  const todayEl = document.getElementById('todayDate');
-  if (todayEl) {
-    todayEl.textContent = new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  } catch (e) {
+    console.warn('Conexión con Supabase no disponible. Se utilizará persistencia local:', e);
   }
 
-  const ingresos = fin.filter(f => f.tipo === 'Ingreso').reduce((s, f) => s + (Number(f.monto) || 0), 0);
-  const egresos = fin.filter(f => f.tipo === 'Egreso').reduce((s, f) => s + (Number(f.monto) || 0), 0);
-
-  const dashCards = document.getElementById('dashCards');
-  if (dashCards) {
-    dashCards.innerHTML = `
-      <div class="card c-navy">
-        <div class="card-label">Balance Total</div>
-        <div class="card-value">${fcurrency(ingresos - egresos)}</div>
-        <div class="card-foot">Ingresos: ${fcurrency(ingresos)} | Egresos: ${fcurrency(egresos)}</div>
-      </div>
-      <div class="card c-amber">
-        <div class="card-label">Licitaciones Activas</div>
-        <div class="card-value">${lic.filter(l => ['Por participar', 'En proceso'].includes(l.estado)).length}</div>
-        <div class="card-foot">De ${lic.length} registradas</div>
-      </div>
-      <div class="card c-green">
-        <div class="card-label">Miembros Activos</div>
-        <div class="card-value">${mie.filter(m => m.estadoCuota === 'Al corriente').length}</div>
-        <div class="card-foot">Total afiliados: ${mie.length}</div>
-      </div>
-      <div class="card c-red">
-        <div class="card-label">Oportunidades CRM</div>
-        <div class="card-value">${crm.filter(c => !['Ganado', 'Perdido'].includes(c.etapa)).length}</div>
-        <div class="card-foot">En seguimiento</div>
-      </div>
-    `;
-  }
-}
-
-/* ---------- Gestor Modal (Crear / Editar) ---------- */
-async function openModal(mod, id = null) {
-  editingModule = mod || currentView;
-  if (!MODULES[editingModule]) return;
-
-  editingId = id;
-  const cfg = MODULES[editingModule];
-  const modalTitle = document.getElementById('modalTitle');
-  const modalBody = document.getElementById('modalBody');
-  const deleteBtn = document.getElementById('modalDeleteBtn');
-
-  if (modalTitle) modalTitle.textContent = id ? `Editar ${cfg.label}` : `Nuevo ${cfg.label}`;
-  if (deleteBtn) deleteBtn.style.display = id ? 'inline-block' : 'none';
-
-  let currentData = {};
-  if (id) {
-    const list = await getData(editingModule);
-    currentData = list.find(r => r.id === id) || {};
-  }
-
-  let fieldsHtml = '';
-  cfg.fields.forEach(f => {
-    const val = currentData[f.name] !== undefined ? currentData[f.name] : '';
-    fieldsHtml += `<div class="field"><label>${f.label}${f.required ? ' *' : ''}</label>`;
-    if (f.type === 'select') {
-      fieldsHtml += `<select name="${f.name}">` +
-        f.options.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('') +
-        `</select>`;
-    } else if (f.type === 'textarea') {
-      fieldsHtml += `<textarea name="${f.name}">${val}</textarea>`;
-    } else {
-      fieldsHtml += `<input type="${f.type}" name="${f.name}" value="${val}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''}>`;
+  /* ---------- Definición de Esquemas por Módulo ---------- */
+  const MODULES = {
+    finanzas: {
+      key: 'erp_finanzas',
+      label: 'Movimiento',
+      fields: [
+        {name: 'fecha', label: 'Fecha', type: 'date', required: true},
+        {name: 'tipo', label: 'Tipo', type: 'select', options: ['Ingreso', 'Egreso'], required: true},
+        {name: 'categoria', label: 'Categoría', type: 'text', placeholder: 'Cuotas, Cursos, Nómina...'},
+        {name: 'concepto', label: 'Concepto', type: 'text', required: true},
+        {name: 'monto', label: 'Monto (MXN)', type: 'number', required: true},
+        {name: 'cuenta', label: 'Cuenta / medio', type: 'text', placeholder: 'Banco, caja, transferencia...'}
+      ],
+      columns: ['fecha', 'tipo', 'categoria', 'concepto', 'cuenta', 'monto'],
+      colLabels: ['Fecha', 'Tipo', 'Categoría', 'Concepto', 'Cuenta', 'Monto']
+    },
+    licitaciones: {
+      key: 'erp_licitaciones',
+      label: 'Licitación',
+      fields: [
+        {name: 'numero', label: 'Número de licitación', type: 'text', required: true},
+        {name: 'dependencia', label: 'Dependencia', type: 'text', required: true},
+        {name: 'objeto', label: 'Objeto', type: 'textarea'},
+        {name: 'monto', label: 'Monto estimado (MXN)', type: 'number'},
+        {name: 'fechaLimite', label: 'Fecha límite', type: 'date'},
+        {name: 'estado', label: 'Estado', type: 'select', options: ['Por participar', 'En proceso', 'Ganada', 'Perdida', 'Descartada'], required: true},
+        {name: 'prioridad', label: 'Prioridad', type: 'select', options: ['Alta', 'Media', 'Baja']}
+      ],
+      columns: ['numero', 'dependencia', 'fechaLimite', 'estado', 'prioridad', 'monto'],
+      colLabels: ['Número', 'Dependencia', 'Fecha límite', 'Estado', 'Prioridad', 'Monto est.']
+    },
+    miembros: {
+      key: 'erp_miembros',
+      label: 'Miembro',
+      fields: [
+        {name: 'nombre', label: 'Nombre o Representante', type: 'text', required: true},
+        {name: 'empresa', label: 'Razón Social / Empresa', type: 'text'},
+        {name: 'folio', label: 'Folio / Registro', type: 'text'},
+        {name: 'telefono', label: 'Teléfono', type: 'text'},
+        {name: 'email', label: 'Correo electrónico', type: 'text'},
+        {name: 'estadoCuota', label: 'Estado de cuota', type: 'select', options: ['Al corriente', 'Pendiente', 'Vencida'], required: true},
+        {name: 'montoCuota', label: 'Monto cuota (MXN)', type: 'number'},
+        {name: 'vencimiento', label: 'Próximo vencimiento', type: 'date'}
+      ],
+      columns: ['folio', 'nombre', 'empresa', 'telefono', 'estadoCuota', 'vencimiento'],
+      colLabels: ['Folio', 'Nombre', 'Empresa', 'Teléfono', 'Estado cuota', 'Vencimiento']
+    },
+    activos: {
+      key: 'erp_activos',
+      label: 'Activo',
+      fields: [
+        {name: 'codigo', label: 'Código / Serie', type: 'text', required: true},
+        {name: 'nombre', label: 'Nombre del activo', type: 'text', required: true},
+        {name: 'categoria', label: 'Categoría', type: 'text', placeholder: 'Mobiliario, Equipo, Vehículo...'},
+        {name: 'ubicacion', label: 'Ubicación / Área', type: 'text'},
+        {name: 'responsable', label: 'Responsable', type: 'text'},
+        {name: 'valor', label: 'Valor estim. (MXN)', type: 'number'},
+        {name: 'estado', label: 'Estado', type: 'select', options: ['Operativo', 'Mantenimiento', 'Baja'], required: true}
+      ],
+      columns: ['codigo', 'nombre', 'categoria', 'ubicacion', 'responsable', 'estado', 'valor'],
+      colLabels: ['Código', 'Nombre', 'Categoría', 'Ubicación', 'Responsable', 'Estado', 'Valor']
+    },
+    crm: {
+      key: 'erp_crm',
+      label: 'Prospecto',
+      fields: [
+        {name: 'nombre', label: 'Contacto principal', type: 'text', required: true},
+        {name: 'empresa', label: 'Empresa / Dependencia', type: 'text'},
+        {name: 'etapa', label: 'Etapa del embudo', type: 'select', options: ['Prospecto', 'Contactado', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'], required: true},
+        {name: 'monto', label: 'Monto potencial (MXN)', type: 'number'},
+        {name: 'responsable', label: 'Responsable interno', type: 'text'},
+        {name: 'proximaAccion', label: 'Próxima acción', type: 'text'},
+        {name: 'fechaAccion', label: 'Fecha de acción', type: 'date'},
+        {name: 'notas', label: 'Notas', type: 'textarea'}
+      ],
+      columns: [],
+      colLabels: []
     }
-    fieldsHtml += `</div>`;
-  });
+  };
 
-  if (modalBody) modalBody.innerHTML = fieldsHtml;
-  const overlay = document.getElementById('overlay');
-  if (overlay) overlay.classList.add('active');
-}
+  /* ---------- Operaciones de Persistencia ---------- */
+  async function getData(mod) {
+    if (supabaseClient) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('erp_store')
+          .select('value')
+          .eq('key', MODULES[mod].key)
+          .maybeSingle();
 
-function closeModal() {
-  const overlay = document.getElementById('overlay');
-  if (overlay) overlay.classList.remove('active');
-  editingModule = null;
-  editingId = null;
-}
+        if (!error && data && data.value) {
+          localStorage.setItem(MODULES[mod].key, JSON.stringify(data.value));
+          return data.value;
+        }
+      } catch (e) {
+        console.error('Error al sincronizar desde Supabase:', e);
+      }
+    }
+    try { return JSON.parse(localStorage.getItem(MODULES[mod].key)) || []; }
+    catch(e) { return []; }
+  }
 
-async function saveRecord() {
-  if (!editingModule) return;
-  const inputs = document.querySelectorAll('#modalBody [name]');
-  const record = { id: editingId || 'id_' + Date.now() };
+  async function setData(mod, arr) {
+    localStorage.setItem(MODULES[mod].key, JSON.stringify(arr));
+    if (supabaseClient) {
+      try {
+        await supabaseClient
+          .from('erp_store')
+          .upsert({ key: MODULES[mod].key, value: arr, updated_at: new Date() }, { onConflict: 'key' });
+      } catch(e) {
+        console.error('Error al guardar en Supabase:', e);
+      }
+    }
+  }
 
-  for (let input of inputs) {
-    if (input.hasAttribute('required') && !input.value.trim()) {
-      showToast('Por favor completa todos los campos obligatorios (*)');
+  /* ---------- Navegación ---------- */
+  let currentView = 'dashboard';
+  let editingModule = null;
+  let editingId = null;
+
+  function initNavigation() {
+    const items = document.querySelectorAll('#navMenu .nav-item');
+    items.forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('#navMenu .nav-item').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        
+        item.classList.add('active');
+        currentView = item.dataset.view;
+        
+        const titleEl = document.getElementById('viewTitle');
+        if (titleEl) titleEl.textContent = item.textContent.trim();
+
+        const targetView = document.getElementById(`view-${currentView}`);
+        if (targetView) targetView.classList.add('active');
+        
+        renderCurrentView();
+      });
+    });
+  }
+
+  function renderCurrentView() {
+    if (currentView === 'dashboard') renderDashboard();
+    else if (currentView === 'crm') renderCRMBoard();
+    else if (MODULES[currentView]) renderTable(currentView);
+  }
+
+  /* ---------- Utilerías ---------- */
+  function fdate(d) {
+    if (!d) return '-';
+    const dt = new Date(d + 'T00:00:00');
+    return isNaN(dt) ? d : dt.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'});
+  }
+
+  function daysUntil(d) {
+    if (!d) return null;
+    const dt = new Date(d + 'T00:00:00');
+    const now = new Date(); now.setHours(0,0,0,0);
+    return Math.round((dt - now) / 86400000);
+  }
+
+  function fcurrency(num) {
+    if (num === null || num === undefined || num === '') return '-';
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  /* ---------- Renderizado Tablas ---------- */
+  async function renderTable(mod) {
+    const cfg = MODULES[mod];
+    let data = await getData(mod);
+    const container = document.getElementById(`table-${mod}`);
+    if (!container) return;
+
+    const searchEl = document.getElementById(`search-${mod}`);
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    if (q) {
+      data = data.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(q)));
+    }
+
+    const filterEl = document.querySelector(`#view-${mod} .filter-select`);
+    if (filterEl && filterEl.value) {
+      const filterField = mod === 'finanzas' ? 'tipo' : (mod === 'licitaciones' ? 'estado' : (mod === 'miembros' ? 'estadoCuota' : 'estado'));
+      data = data.filter(r => r[filterField] === filterEl.value);
+    }
+
+    if (!data.length) {
+      container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--steel);">No hay registros disponibles.</div>`;
       return;
     }
-    record[input.name] = input.value;
-  }
 
-  const list = await getData(editingModule);
-  if (editingId) {
-    const idx = list.findIndex(r => r.id === editingId);
-    if (idx !== -1) list[idx] = record;
-  } else {
-    list.push(record);
-  }
+    let html = `<table><thead><tr>`;
+    cfg.colLabels.forEach(l => html += `<th>${l}</th>`);
+    html += `<th style="text-align:right">Acciones</th></tr></thead><tbody>`;
 
-  await setData(editingModule, list);
-  closeModal();
-  showToast('Registro guardado correctamente');
-  renderCurrentView();
-}
-
-async function deleteRecord() {
-  if (!editingModule || !editingId) return;
-  if (!confirm('¿Deseas eliminar este registro de manera definitiva?')) return;
-  let list = await getData(editingModule);
-  list = list.filter(r => r.id !== editingId);
-  await setData(editingModule, list);
-  closeModal();
-  showToast('Registro eliminado');
-  renderCurrentView();
-}
-
-/* ---------- Asignación Global de Eventos e Inicialización ---------- */
-document.addEventListener('DOMContentLoaded', () => {
-  initNavigation();
-  renderDashboard();
-
-  // Escuchar botones de apertura de modal (+ Nuevo)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-action="new-record"]');
-    if (btn) {
-      const mod = btn.dataset.module || currentView;
-      openModal(mod);
-    }
-  });
-
-  // Vinculación de botones del Modal
-  const saveBtn = document.getElementById('modalSaveBtn');
-  if (saveBtn) saveBtn.addEventListener('click', saveRecord);
-
-  const closeBtn = document.getElementById('modalCloseBtn');
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-
-  const deleteBtn = document.getElementById('modalDeleteBtn');
-  if (deleteBtn) deleteBtn.addEventListener('click', deleteRecord);
-
-  // Filtros en tiempo real para buscadores
-  document.querySelectorAll('input[id^="search-"]').forEach(input => {
-    input.addEventListener('input', () => renderCurrentView());
-  });
-
-  document.querySelectorAll('.filter-select').forEach(select => {
-    select.addEventListener('change', () => renderCurrentView());
-  });
-});
-</script>
+    data.forEach(item => {
+      html += `<tr>`;
+      cfg.columns.forEach(col => {
+        let val = item[col] || '-';
+        let cls = '';
+        if (['monto', 'valor
